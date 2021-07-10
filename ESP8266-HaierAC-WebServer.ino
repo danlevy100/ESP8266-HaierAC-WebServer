@@ -10,7 +10,7 @@
   is selected (required for Coolix).
 
 */
-#include "Web-AC-control.h"
+#include "ESP8266-HaierAC-WebServer.h"
 #if defined(ESP8266)
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
@@ -76,7 +76,6 @@ float const a = 6.1121, b = 18.678, c = 257.14;
 
 /// ##### End user configuration ######
 
-
 struct state {
   uint8_t temperature = 22, fan = 0, operation = 0;
   bool powerStatus;
@@ -94,8 +93,8 @@ char deviceName[] = "AC Remote Control";
 const char* ssid = "Dan";
 const char* password = "0528561582";
 
-const char* www_username = "Dan";
-const char* www_password = "mazgan";
+const char* www_username = "Shachar";
+const char* www_password = "yafa";
 
 // NETWORK: Static IP details...
 IPAddress ip(192, 168, 1, 14);
@@ -335,6 +334,10 @@ void setup() {
   });
 
   server.on("/", []() {
+    
+    if(!server.authenticate(www_username, www_password))
+      return server.requestAuthentication(); 
+    
     server.sendHeader("Location", String("ui.html"), true);
     server.send(302, "text/plain", "");
   });
