@@ -33,11 +33,12 @@
 
 #include <EasyDDNS.h>
 #include <Adafruit_Sensor.h>
-#include <Adafruit_BME280.h>
+//#include <Adafruit_BME280.h>
+#include <Adafruit_AHTX0.h>
 #include <Wire.h>
 #include <SPI.h>
 
-#include "DHT.h"
+//#include "DHT.h"
 
 //// ###### User configuration space for AC library classes ##########
 
@@ -64,9 +65,11 @@ const uint16_t kIrLed = 0;
 IRHaierACYRW02 ac(kIrLed);
 
 #define DHTPIN 14  // what digital pin we're connected to
-#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
-DHT dht(DHTPIN, DHTTYPE);
-Adafruit_BME280 bme; // I2C
+//#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+//DHT dht(DHTPIN, DHTTYPE);
+//Adafruit_BME280 bme; // I2C
+Adafruit_AHTX0 aht;
+
 unsigned BMEstatus;
 float home_temp, home_humidity, home_pressure;
 float dht_temperature, dht_humidity;
@@ -77,7 +80,7 @@ float const a = 6.1121, b = 18.678, c = 257.14;
 /// ##### End user configuration ######
 
 struct state {
-  uint8_t temperature = 22, fan = 0, operation = 0;
+  uint8_t temperature = 22, fan = 0, operation = 1;
   bool powerStatus;
 };
 
@@ -194,6 +197,7 @@ void handleNotFound() {
 
 void setup() {
 
+  /*
   // BME280 test
   Serial.println(F("BME280 test"));
   // default settings
@@ -208,7 +212,13 @@ void setup() {
       Serial.print("        ID of 0x60 represents a BME 280.\n");
       Serial.print("        ID of 0x61 represents a BME 680.\n");
       while (1) delay(10);
-  }
+  }*/
+  
+  if (! aht.begin()) {
+      Serial.println("Could not find AHT? Check wiring");
+      while (1) delay(10);
+    }
+  Serial.println("AHT10 or AHT20 found");  
   
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
@@ -355,26 +365,30 @@ void setup() {
   
   server.on("/read_temp", HTTP_GET, []() {
     // if the client requests the temperature
-    home_temp = bme.readTemperature();
+    //home_temp = bme.readTemperature();    
     //home_temp = dht.readTemperature();
-    String s = String(home_temp);
+    sensors_event_t home_humidity, home_temp;
+    aht.getEvent(&home_humidity, &home_temp);// populate temp and humidity objects with fresh data
+    String s = String(home_temp.temperature);
     server.send(200, "text/plain", String(s + " C"));
   });
 
   server.on("/read_humidity", HTTP_GET, []() {
     // if the client requests the temperature
-    home_humidity = bme.readHumidity();
+    //home_humidity = bme.readHumidity();
     //home_humidity = dht.readHumidity();
-    String s = String(home_humidity);
+    sensors_event_t home_humidity, home_temp;
+    aht.getEvent(&home_humidity, &home_temp);// populate temp and humidity objects with fresh data    
+    String s = String(home_humidity.relative_humidity);
     server.send(200, "text/plain", String(s + "%"));
   });
 
-  server.on("/read_pressure", HTTP_GET, []() {
+  /*server.on("/read_pressure", HTTP_GET, []() {
     // if the client requests the temperature
     home_pressure = bme.readPressure() / 100.0F * 0.02953;    
     String s = String(home_pressure);
     server.send(200, "text/plain", String(s + " inHg"));
-  });
+  });*/
 
 
   server.on("/reset", []() {
