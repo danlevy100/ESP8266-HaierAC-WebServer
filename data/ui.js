@@ -129,11 +129,11 @@ function temp_onclick(temp) {
 }
 
 setInterval(function() {
-  // Call a function repetatively with 2 Second interval
+  // Call a function repetatively with 10 Second interval
   get_home_temp();  
   get_home_humidity();
-  get_home_pressure();
-}, 2000); //2000mSeconds update rate*/
+  //get_home_pressure();
+}, 10000); //10000 ms update rate*/
 
 function get_home_temp() {
   var xhttp = new XMLHttpRequest();
