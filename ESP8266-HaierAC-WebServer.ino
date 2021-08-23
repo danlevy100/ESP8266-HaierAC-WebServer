@@ -197,6 +197,8 @@ void handleNotFound() {
 
 void setup() {
 
+  Serial.begin(115200);
+
   /*
   // BME280 test
   Serial.println(F("BME280 test"));
@@ -227,15 +229,20 @@ void setup() {
     Serial.println("WiFi Connect Failed! Rebooting...");
     delay(1000);
     ESP.restart();
-  }
+  }  
+  Serial.println(WiFi.localIP()); // Print the IP address
 
-  WiFi.config(ip, gateway, subnet);     
+  //WiFi.config(ip, gateway, subnet);     
   
   EasyDDNS.service("noip");
   EasyDDNS.client("danhome.ddns.net","danlevy100","1qaz1qaz");  
   
-  // Serial.begin(115200);
-  // Serial.println();
+  // Get Notified when your IP changes
+  EasyDDNS.onUpdate([&](const char* oldIP, const char* newIP){
+    Serial.print("EasyDDNS - IP Change Detected: ");
+    Serial.println(newIP);
+  });
+  
   ac.begin();
 
   delay(1000);
@@ -404,6 +411,9 @@ void setup() {
   server.begin();
 }
 
-void loop() {
+void loop() {  
+  // Check for new public IP every 60 seconds
+  EasyDDNS.update(60000);
+  
   server.handleClient();
 }

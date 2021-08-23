@@ -171,3 +171,6 @@ function get_home_pressure() {
   xhttp.send();
 }
 
+get_home_temp();
+get_home_humidity();
+
