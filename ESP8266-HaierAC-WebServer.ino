@@ -113,8 +113,7 @@ const char* www_username = "Shachar";
 const char* www_password = "yafa";
 
 // php file location on server for inserting data to database
-const char* serverName = "http://192.168.1.200:8081/insert_db.php";    
-  
+const char* serverName = "http://192.168.1.200:8081/insert_db.php";     
 
 // NETWORK: Static IP details...
 IPAddress ip(192, 168, 1, 14);
