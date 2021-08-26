@@ -1,0 +1,9 @@
+CREATE TABLE SensorData (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    sensor TEXT NOT NULL,
+    location TEXT NOT NULL,
+    value1 TEXT,
+    value2 TEXT,
+    value3 TEXT,
+    Timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+)
