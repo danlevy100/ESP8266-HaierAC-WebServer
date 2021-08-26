@@ -16,6 +16,7 @@
 #include <ESP8266mDNS.h>
 #include <ESP8266HTTPUpdateServer.h>
 #include <ESP8266WebServer.h>
+#include <ESP8266HTTPClient.h>
 #endif  // ESP8266
 
 #if defined(ESP32)
@@ -39,6 +40,13 @@
 #include <SPI.h>
 
 //#include "DHT.h"
+
+#include <arduino-timer.h>
+auto timer = timer_create_default();
+
+HTTPClient http;
+WiFiClient client;
+  
 
 //// ###### User configuration space for AC library classes ##########
 
@@ -77,6 +85,11 @@ float gamma_, dewPoint;
 // Dew Point calculation constants 
 float const a = 6.1121, b = 18.678, c = 257.14;
 
+String apiKeyValue = "tPmAT5Ab3j7F9";
+
+String sensorName = "AHT21";
+String sensorLocation = "LivingRoom";
+
 /// ##### End user configuration ######
 
 struct state {
@@ -98,6 +111,10 @@ const char* password = "0528561582";
 
 const char* www_username = "Shachar";
 const char* www_password = "yafa";
+
+// php file location on server for inserting data to database
+const char* serverName = "http://192.168.1.200:8081/insert_db.php";    
+  
 
 // NETWORK: Static IP details...
 IPAddress ip(192, 168, 1, 14);
@@ -193,6 +210,56 @@ void handleNotFound() {
     message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
   }
   server.send(404, "text/plain", message);
+}
+
+bool postToDB(void *) {
+    
+  http.begin(client, serverName);
+
+  sensors_event_t home_humidity, home_temp;
+  aht.getEvent(&home_humidity, &home_temp);// populate temp and humidity objects with fresh data    
+  String humidity = String(home_humidity.relative_humidity);
+  String temperature = String(home_temp.temperature);
+  
+  // Specify content-type header
+  http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+  
+  // Prepare your HTTP POST request data
+  String httpRequestData = "api_key=" + apiKeyValue + "&sensor=" + sensorName
+                        + "&location=" + sensorLocation + "&value1=" + temperature
+                        + "&value2=" + humidity + "&value3=" + "";
+  Serial.print("httpRequestData: ");
+  Serial.println(httpRequestData);
+    
+  // You can comment the httpRequestData variable above
+  // then, use the httpRequestData variable below (for testing purposes without the BME280 sensor)
+  //String httpRequestData = "api_key=tPmAT5Ab3j7F9&sensor=BME280&location=Office&value1=24.75&value2=49.54&value3=1005.14";
+
+  Serial.println(httpRequestData);
+
+  // Send HTTP POST request
+  int httpResponseCode = http.POST(httpRequestData);
+   
+  // If you need an HTTP request with a content type: text/plain
+  //http.addHeader("Content-Type", "text/plain");
+  //int httpResponseCode = http.POST("Hello, World!");
+  
+  // If you need an HTTP request with a content type: application/json, use the following:
+  //http.addHeader("Content-Type", "application/json");
+  //int httpResponseCode = http.POST("{\"value1\":\"19\",\"value2\":\"67\",\"value3\":\"78\"}");
+      
+  if (httpResponseCode>0) {
+    Serial.print("HTTP Response code: ");
+    Serial.println(httpResponseCode);
+  }
+  else {
+    Serial.print("Error code: ");
+    Serial.println(httpResponseCode);
+  }
+  // Free resources
+  http.end();
+
+  return true; // keep timer active? true
 }
 
 void setup() {
@@ -409,11 +476,15 @@ void setup() {
   server.onNotFound(handleNotFound);
 
   server.begin();
+
+  timer.every(60000, postToDB);
 }
 
 void loop() {  
   // Check for new public IP every 60 seconds
   EasyDDNS.update(60000);
-  
+    
   server.handleClient();
+
+  timer.tick(); //tick the timer  
 }
