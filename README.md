@@ -1,6 +1,6 @@
-# Control an air conditioner (AC) with a web app 
+# Remotely control an air conditioner (AC) with an ESP8266
 
-## Architecture
+## How it works
 - An ESP8266 microcontroller controls an IR LED that activates the AC (Haier in this case).
 - The ESP also serves as a webserver, hosting a small web app through which the user controls the AC.
 - Basic HTTP authentication is used (username, password).
