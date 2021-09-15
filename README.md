@@ -1,6 +1,4 @@
-# ESP8266-HaierAC-WebServer
- 
-Control an air conditioner (AC) with a web app!
+# Control an air conditioner (AC) with a web app 
 
 - An ESP8266 microcontroller controls an IR LED that activates the AC (Haier in this case).
 - The ESP also serves as a webserver, hosting a small web app which allows the user to control the AC. 
