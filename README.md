@@ -1,4 +1,4 @@
-# Remotely control an air conditioner (AC) with an ESP8266
+# Remotely control your air conditioner (AC) with an ESP8266
 
 ## How it works
 - An ESP8266 microcontroller controls an IR LED that activates the AC (Haier in this case).
