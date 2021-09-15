@@ -4,7 +4,7 @@
 - The ESP also serves as a webserver, hosting a small web app which allows the user to control the AC. 
 - A temperature and humidity sensor is connected. The data are shown in the web app in real time, refreshing every 10 seconds and are also sent by the ESP to another server every 60 seconds. The server logs it in a SQLite database.
 
-The ESP code is in the main folder (`ESP8266-HaierAC-WebServer.h`,`ESP8266-HaierAC-WebServer.ino`).
+The main piece of code is `ESP8266-HaierAC-WebServer.ino` with the associated `ESP8266-HaierAC-WebServer.h`. These files should be uploaded to the ESP.
 
 The `data` folder has some graphics for the web app and should be uploaded to the ESP using LittleFS.
 
