@@ -11,4 +11,4 @@ The main piece of code is `ESP8266-HaierAC-WebServer.ino` (with the associated `
 
 The `data` folder contains the web app files and should be uploaded to the ESP using LittleFS. The heart is `ui.js` and the file served is `ui.html`. 
 
-The `sensor_log_server` folder contains the PHP files for inserting the data to the database (`insert_db.php`) and displaying it (`livingroom_sensor.php`). These files should be on the dedicated data record/display server.
+The `sensor_log_server` folder contains the PHP files for inserting the data to the database (`insert_db.php`) and displaying it (`livingroom_sensor.php`). These files should be on the dedicated data log/display server.
