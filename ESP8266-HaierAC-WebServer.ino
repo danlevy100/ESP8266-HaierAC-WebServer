@@ -17,6 +17,7 @@
 #include <ESP8266HTTPUpdateServer.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266HTTPClient.h>
+#include <WiFiClientSecureBearSSL.h>
 #endif  // ESP8266
 
 #if defined(ESP32)
@@ -32,7 +33,7 @@
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
 
-#include <EasyDDNS.h>
+//#include <EasyDDNS.h>
 #include <Adafruit_Sensor.h>
 //#include <Adafruit_BME280.h>
 #include <Adafruit_AHTX0.h>
@@ -45,8 +46,6 @@
 auto timer = timer_create_default();
 
 HTTPClient http;
-WiFiClient client;
-  
 
 //// ###### User configuration space for AC library classes ##########
 
@@ -113,18 +112,16 @@ const char* www_username = "Shachar";
 const char* www_password = "yafa";
 
 // php file location on server for inserting data to database
-const char* serverName = "http://192.168.1.200:8081/insert_db.php";     
-
-// NETWORK: Static IP details...
-IPAddress ip(192, 168, 1, 14);
-IPAddress gateway(192, 168, 1, 1);
-IPAddress subnet(255, 255, 255, 0);
+//const char* serverName = "https://192.168.1.200/insert_db.php";
+const char* serverName = "https://danhome.ddns.net/insert_db.php";
+// SSL SHA1 fingerprint 
+const char* fingerprint = "64 60 19 17 91 68 C3 48 19 32 CF 7D 78 C0 63 C3 C3 E1 7D 91";
 
 #if defined(ESP8266)
-
 ESP8266WebServer server(80);
 ESP8266HTTPUpdateServer httpUpdateServer;
 #endif  // ESP8266
+
 #if defined(ESP32)
 WebServer server(80);
 #endif  // ESP32
@@ -211,9 +208,11 @@ void handleNotFound() {
   server.send(404, "text/plain", message);
 }
 
-bool postToDB(void *) {
-    
-  http.begin(client, serverName);
+bool postToDB(void *) {  
+  
+  std::unique_ptr<BearSSL::WiFiClientSecure>client(new BearSSL::WiFiClientSecure);
+  client->setInsecure();  
+  http.begin(*client, serverName);
 
   sensors_event_t home_humidity, home_temp;
   aht.getEvent(&home_humidity, &home_temp);// populate temp and humidity objects with fresh data    
@@ -264,7 +263,6 @@ bool postToDB(void *) {
 void setup() {
 
   Serial.begin(115200);
-
   /*
   // BME280 test
   Serial.println(F("BME280 test"));
@@ -300,14 +298,14 @@ void setup() {
 
   //WiFi.config(ip, gateway, subnet);     
   
-  EasyDDNS.service("noip");
+  /*EasyDDNS.service("noip");
   EasyDDNS.client("danhome.ddns.net","danlevy100","1qaz1qaz");  
   
   // Get Notified when your IP changes
   EasyDDNS.onUpdate([&](const char* oldIP, const char* newIP){
     Serial.print("EasyDDNS - IP Change Detected: ");
     Serial.println(newIP);
-  });
+  });*/
   
   ac.begin();
 
@@ -481,7 +479,7 @@ void setup() {
 
 void loop() {  
   // Check for new public IP every 60 seconds
-  EasyDDNS.update(60000);
+  //EasyDDNS.update(60000);
     
   server.handleClient();
 
