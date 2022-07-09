@@ -49,9 +49,10 @@ HTTPClient http;
 
 //// ###### User configuration space for AC library classes ##########
 
-#include <ir_Haier.h>  //  replace library based on your AC unit model, check https://github.com/crankyoldgit/IRremoteESP8266
+//#include <ir_Haier.h>  //  replace library based on your AC unit model, check https://github.com/crankyoldgit/IRremoteESP8266
+#include <ir_Goodweather.h>  //  replace library based on your AC unit model, check https://github.com/crankyoldgit/IRremoteESP8266
 
-#define AUTO_MODE kHaierAcYrw02Auto
+/*#define AUTO_MODE kHaierAcYrw02Auto
 #define COOL_MODE kHaierAcYrw02Cool
 #define DRY_MODE kHaierAcYrw02Dry
 #define HEAT_MODE kHaierAcYrw02Heat
@@ -64,12 +65,25 @@ HTTPClient http;
 
 #define TURBO_OFF kHaierAcYrw02TurboOff
 #define TURBO_LOW kHaierAcYrw02TurboLow
-#define TURBO_HI kHaierAcYrw02TurboHigh
+#define TURBO_HI kHaierAcYrw02TurboHigh*/
+
+#define AUTO_MODE kGoodweatherAuto
+#define COOL_MODE kGoodweatherCool
+#define DRY_MODE kGoodweatherDry
+#define HEAT_MODE kGoodweatherHeat
+#define FAN_MODE kGoodweatherFan
+
+#define FAN_AUTO kGoodweatherFanAuto
+#define FAN_MIN kGoodweatherFanLow
+#define FAN_MED kGoodweatherFanMed
+#define FAN_HI kGoodweatherFanHigh
 
 // ESP8266 GPIO pin to use for IR blaster.
 const uint16_t kIrLed = 0;
 // Library initialization, change it according to the imported library file.
-IRHaierACYRW02 ac(kIrLed);
+
+//IRHaierACYRW02 ac(kIrLed);
+IRGoodweatherAc ac(kIrLed);
 
 #define DHTPIN 14  // what digital pin we're connected to
 //#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
