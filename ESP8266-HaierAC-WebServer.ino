@@ -2,6 +2,7 @@
  *  Web server control of Haier Buzz AC.
  */
 
+// Based on an example by Motea Marius, as described below.
 /* Copyright 2019 Motea Marius
 
   This example code will create a webserver that will provide basic control to AC units using the web application
@@ -10,6 +11,7 @@
   is selected (required for Coolix).
 
 */
+
 #include "ESP8266-HaierAC-WebServer.h"
 #if defined(ESP8266)
 #include <ESP8266WiFi.h>
@@ -105,11 +107,11 @@ state acState;
 // settings
 char deviceName[] = "AC Remote Control";
 
-const char* ssid = "Dan";
-const char* password = "0528561582";
+const char* ssid = "your WiFi SSID";
+const char* password = "your WiFi password";
 
-const char* www_username = "Shachar";
-const char* www_password = "yafa";
+const char* www_username = "your website username"
+const char* www_password = "your website password";
 
 // php file location on server for inserting data to database
 //const char* serverName = "https://192.168.1.200/insert_db.php";
