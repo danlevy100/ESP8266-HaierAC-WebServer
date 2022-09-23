@@ -1,5 +1,5 @@
 /* Dan Levy, July 2021.
- *  Web server control of Haier Buzz AC.
+ *  Web server control of Goodweather (Family) AC.
  */
 
 // Based on an example by Motea Marius, as described below.
