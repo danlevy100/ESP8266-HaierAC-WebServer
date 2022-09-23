@@ -298,10 +298,7 @@ void setup() {
   }  
   Serial.println(WiFi.localIP()); // Print the IP address
 
-  //WiFi.config(ip, gateway, subnet);     
-  
-  /*EasyDDNS.service("noip");
-  EasyDDNS.client("danhome.ddns.net","danlevy100","1qaz1qaz");  
+  //WiFi.config(ip, gateway, subnet);   
   
   // Get Notified when your IP changes
   EasyDDNS.onUpdate([&](const char* oldIP, const char* newIP){
