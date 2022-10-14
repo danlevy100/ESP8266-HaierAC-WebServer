@@ -1,8 +1,10 @@
-/* Dan Levy, July 2021.
- *  Web server control of Haier Buzz AC.
+/* Dan Levy, September 2022.
+ *  AC remote web server with ESP-32.
  */
 
-/* Copyright 2019 Motea Marius
+/* Based on:
+
+  Copyright 2019 Motea Marius
 
   This example code will create a webserver that will provide basic control to AC units using the web application
   build with javascript/css. User config zone need to be updated if a different class than Collix need to be used.
@@ -10,62 +12,34 @@
   is selected (required for Coolix).
 
 */
-#include "ESP8266-HaierAC-WebServer.h"
-#if defined(ESP8266)
-#include <ESP8266WiFi.h>
-#include <ESP8266mDNS.h>
-#include <ESP8266HTTPUpdateServer.h>
-#include <ESP8266WebServer.h>
-#include <ESP8266HTTPClient.h>
-#include <WiFiClientSecureBearSSL.h>
-#endif  // ESP8266
+#include "ESP32-AC-WebServer.h"
 
-#if defined(ESP32)
 #include <ESPmDNS.h>
 #include <WebServer.h>
 #include <WiFi.h>
 #include <Update.h>
-#endif  // ESP32
-
+#include <ESPmDNS.h>
 #include <WiFiUdp.h>
-//#include <WiFiManager.h>
 #include <ArduinoJson.h>
 #include <IRremoteESP8266.h>
 #include <IRsend.h>
-
-//#include <EasyDDNS.h>
 #include <Adafruit_Sensor.h>
-//#include <Adafruit_BME280.h>
 #include <Adafruit_AHTX0.h>
 #include <Wire.h>
 #include <SPI.h>
-
-//#include "DHT.h"
-
+#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
 #include <arduino-timer.h>
+
 auto timer = timer_create_default();
 
 HTTPClient http;
+WiFiClientSecure client;
 
 //// ###### User configuration space for AC library classes ##########
 
 //#include <ir_Haier.h>  //  replace library based on your AC unit model, check https://github.com/crankyoldgit/IRremoteESP8266
 #include <ir_Goodweather.h>  //  replace library based on your AC unit model, check https://github.com/crankyoldgit/IRremoteESP8266
-
-/*#define AUTO_MODE kHaierAcYrw02Auto
-#define COOL_MODE kHaierAcYrw02Cool
-#define DRY_MODE kHaierAcYrw02Dry
-#define HEAT_MODE kHaierAcYrw02Heat
-#define FAN_MODE kHaierAcYrw02Fan
-
-#define FAN_AUTO kHaierAcYrw02FanAuto
-#define FAN_MIN kHaierAcYrw02FanLow
-#define FAN_MED kHaierAcYrw02FanMed
-#define FAN_HI kHaierAcYrw02FanHigh
-
-#define TURBO_OFF kHaierAcYrw02TurboOff
-#define TURBO_LOW kHaierAcYrw02TurboLow
-#define TURBO_HI kHaierAcYrw02TurboHigh*/
 
 #define AUTO_MODE kGoodweatherAuto
 #define COOL_MODE kGoodweatherCool
@@ -78,25 +52,14 @@ HTTPClient http;
 #define FAN_MED kGoodweatherFanMed
 #define FAN_HI kGoodweatherFanHigh
 
-// ESP8266 GPIO pin to use for IR blaster.
-const uint16_t kIrLed = 0;
+// GPIO pin to use for IR blaster.
+const uint16_t kIrLed = 4;
 // Library initialization, change it according to the imported library file.
 
 //IRHaierACYRW02 ac(kIrLed);
 IRGoodweatherAc ac(kIrLed);
 
-#define DHTPIN 14  // what digital pin we're connected to
-//#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
-//DHT dht(DHTPIN, DHTTYPE);
-//Adafruit_BME280 bme; // I2C
 Adafruit_AHTX0 aht;
-
-unsigned BMEstatus;
-float home_temp, home_humidity, home_pressure;
-float dht_temperature, dht_humidity;
-float gamma_, dewPoint;
-// Dew Point calculation constants 
-float const a = 6.1121, b = 18.678, c = 257.14;
 
 String apiKeyValue = "tPmAT5Ab3j7F9";
 
@@ -131,14 +94,40 @@ const char* serverName = "https://danhome.ddns.net/insert_db.php";
 // SSL SHA1 fingerprint 
 const char* fingerprint = "64 60 19 17 91 68 C3 48 19 32 CF 7D 78 C0 63 C3 C3 E1 7D 91";
 
-#if defined(ESP8266)
-ESP8266WebServer server(80);
-ESP8266HTTPUpdateServer httpUpdateServer;
-#endif  // ESP8266
-
-#if defined(ESP32)
 WebServer server(80);
-#endif  // ESP32
+
+float delta_T = 4.0; // temperature offset to be corrected due to heating of sensor
+
+float temp_correct(float temp_original) {
+  // correct temperature offset due to heating of sensor  
+  float temp_correct = temp_original - delta_T;
+  return temp_correct;
+}
+
+float humidity_correct(float temp_original, float humidity_original) {
+  // correct relative humidity after correction of temperature offset
+  // Taken from "The relationship between relative humidity and the dewpoint temperature in moist air"
+  // - A paper by Mark G. Lawrence.
+  const float L = 2441700; // Heat of vaporization of water at 25 C, [J/kg]
+  const float Rw = 461.5; // The gas constant for water vapor, [J/kg/K] 
+  const float T = temp_original + 273.15; // Convert to Kelvin
+
+  const float humidity_correct = humidity_original*(1+L/Rw*delta_T/(T*T));
+  // This is an approximation. The non-approximated formula is:
+  // RH_2 = RH_1 * exp(-L/Rw(1/T_1-1/T_2))
+
+  return humidity_correct;
+}
+
+float dewpoint(float temp_celsius, float RH) {
+  const float L = 2441700; // Heat of vaporization of water at 25 C, [J/kg]
+  const float Rw = 461.5; // The gas constant for water vapor, [J/kg/K] 
+  const float T = temp_celsius + 273.15; // Convert to Kelvin  
+  
+  const float T_d = T/(1-T*log(RH/100)*Rw/L) - 273.15; 
+
+  return T_d;
+}
 
 bool handleFileRead(String path) {
   //  send the right file to the client (if it exists)
@@ -206,7 +195,6 @@ void handleFileUpload() {  // upload a new file to the FILESYSTEM
   }
 }
 
-
 void handleNotFound() {
   String message = "File Not Found\n\n";
   message += "URI: ";
@@ -224,22 +212,30 @@ void handleNotFound() {
 
 bool postToDB(void *) {  
   
-  std::unique_ptr<BearSSL::WiFiClientSecure>client(new BearSSL::WiFiClientSecure);
-  client->setInsecure();  
-  http.begin(*client, serverName);
+  client.setInsecure();  
+  http.begin(client, serverName);
 
-  sensors_event_t home_humidity, home_temp;
-  aht.getEvent(&home_humidity, &home_temp);// populate temp and humidity objects with fresh data    
-  String humidity = String(home_humidity.relative_humidity);
-  String temperature = String(home_temp.temperature);
+  // if the client requests the temperature
+  sensors_event_t humidity, temperature;
+  aht.getEvent(&humidity, &temperature);// populate temp and humidity objects with fresh data       
+    
+  const float T = temp_correct(temperature.temperature); //correct for offset
+  // correct relative humidity for temperature offset
+  const float RH = humidity_correct(temperature.temperature, humidity.relative_humidity);
+  // calculate dew point
+  const float T_dewpoint = dewpoint(T, RH);
+
+  String temp_str = String(T);
+  String humid_str = String(RH);
+  String dewpoint_str = String(T_dewpoint);
   
   // Specify content-type header
   http.addHeader("Content-Type", "application/x-www-form-urlencoded");
   
   // Prepare your HTTP POST request data
   String httpRequestData = "api_key=" + apiKeyValue + "&sensor=" + sensorName
-                        + "&location=" + sensorLocation + "&value1=" + temperature
-                        + "&value2=" + humidity + "&value3=" + "";
+                        + "&location=" + sensorLocation + "&value1=" + temp_str
+                        + "&value2=" + humid_str + "&value3=" + "";
   Serial.print("httpRequestData: ");
   Serial.println(httpRequestData);
     
@@ -274,25 +270,27 @@ bool postToDB(void *) {
   return true; // keep timer active? true
 }
 
+void WiFiStationConnected(WiFiEvent_t event, WiFiEventInfo_t info){
+  Serial.println("Connected to AP successfully!");
+}
+
+void WiFiGotIP(WiFiEvent_t event, WiFiEventInfo_t info){
+  Serial.println("WiFi connected");
+  Serial.println("IP address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void WiFiStationDisconnected(WiFiEvent_t event, WiFiEventInfo_t info){
+  Serial.println("Disconnected from WiFi access point");
+  Serial.print("WiFi lost connection. Reason: ");
+  Serial.println(info.wifi_sta_disconnected.reason);
+  Serial.println("Trying to Reconnect");
+  WiFi.begin(ssid, password);
+}
+
 void setup() {
 
-  Serial.begin(115200);
-  /*
-  // BME280 test
-  Serial.println(F("BME280 test"));
-  // default settings
-  BMEstatus = bme.begin(0x76);  
-  // You can also pass in a Wire library object like &Wire2
-  // status = bme.begin(0x76, &Wire2)
-  if (!BMEstatus) {
-      Serial.println("Could not find a valid BME280 sensor, check wiring, address, sensor ID!");
-      Serial.print("SensorID was: 0x"); Serial.println(bme.sensorID(),16);
-      Serial.print("        ID of 0xFF probably means a bad address, a BMP 180 or BMP 085\n");
-      Serial.print("   ID of 0x56-0x58 represents a BMP 280,\n");
-      Serial.print("        ID of 0x60 represents a BME 280.\n");
-      Serial.print("        ID of 0x61 represents a BME 680.\n");
-      while (1) delay(10);
-  }*/
+  Serial.begin(115200);  
   
   if (! aht.begin()) {
       Serial.println("Could not find AHT? Check wiring");
@@ -300,26 +298,18 @@ void setup() {
     }
   Serial.println("AHT10 or AHT20 found");  
   
+  // delete old config
+  WiFi.disconnect(true);
+
+  WiFi.onEvent(WiFiStationConnected, ARDUINO_EVENT_WIFI_STA_CONNECTED);
+  WiFi.onEvent(WiFiGotIP, ARDUINO_EVENT_WIFI_STA_GOT_IP);
+  WiFi.onEvent(WiFiStationDisconnected, ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
+  
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-  
-  if(WiFi.waitForConnectResult() != WL_CONNECTED) {
-    Serial.println("WiFi Connect Failed! Rebooting...");
-    delay(1000);
-    ESP.restart();
-  }  
-  Serial.println(WiFi.localIP()); // Print the IP address
+  Serial.println("Waiting for WIFI network...");
 
-  //WiFi.config(ip, gateway, subnet);     
-  
-  /*EasyDDNS.service("noip");
-  EasyDDNS.client("danhome.ddns.net","danlevy100","1qaz1qaz");  
-  
-  // Get Notified when your IP changes
-  EasyDDNS.onUpdate([&](const char* oldIP, const char* newIP){
-    Serial.print("EasyDDNS - IP Change Detected: ");
-    Serial.println(newIP);
-  });*/
+  Serial.println(WiFi.localIP()); // Print the IP address
   
   ac.begin();
 
@@ -330,22 +320,7 @@ void setup() {
   if (!FILESYSTEM.begin()) {
     // Serial.println("Failed to mount file system");
     return;
-  }
-
-  /*WiFiManager wifiManager;
-
-  if (!wifiManager.autoConnect(deviceName)) {
-    delay(3000);
-    ESP.restart();
-    delay(5000);
-  }*/
-
-
-#if defined(ESP8266)
-  httpUpdateServer.setup(&server);
-#endif  // ESP8266
-
-
+  }  
 
   server.on("/state", HTTP_PUT, []() {
     DynamicJsonDocument root(1024);
@@ -446,34 +421,25 @@ void setup() {
     String output;
     serializeJson(root, output);
     server.send(200, "text/plain", output);
-  });
-  
-  server.on("/read_temp", HTTP_GET, []() {
-    // if the client requests the temperature
-    //home_temp = bme.readTemperature();    
-    //home_temp = dht.readTemperature();
-    sensors_event_t home_humidity, home_temp;
-    aht.getEvent(&home_humidity, &home_temp);// populate temp and humidity objects with fresh data
-    String s = String(home_temp.temperature);
-    server.send(200, "text/plain", String(s + " C"));
-  });
+  });  
 
-  server.on("/read_humidity", HTTP_GET, []() {
+  server.on("/read_sensor_data", HTTP_GET, []() {
     // if the client requests the temperature
-    //home_humidity = bme.readHumidity();
-    //home_humidity = dht.readHumidity();
-    sensors_event_t home_humidity, home_temp;
-    aht.getEvent(&home_humidity, &home_temp);// populate temp and humidity objects with fresh data    
-    String s = String(home_humidity.relative_humidity);
-    server.send(200, "text/plain", String(s + "%"));
-  });
+    sensors_event_t humidity, temperature;
+    aht.getEvent(&humidity, &temperature);// populate temp and humidity objects with fresh data       
+    
+    const float T = temp_correct(temperature.temperature); //correct for offset
+    // correct relative humidity for temperature offset
+    const float RH = humidity_correct(temperature.temperature, humidity.relative_humidity);
+    // calculate dew point
+    const float T_dewpoint = dewpoint(T, RH);
 
-  /*server.on("/read_pressure", HTTP_GET, []() {
-    // if the client requests the temperature
-    home_pressure = bme.readPressure() / 100.0F * 0.02953;    
-    String s = String(home_pressure);
-    server.send(200, "text/plain", String(s + " inHg"));
-  });*/
+    String temp_str = String(T);
+    String humid_str = String(RH);
+    String dewpoint_str = String(T_dewpoint);
+
+    server.send(200, "text/plain", temp_str + ',' + humid_str + ',' + dewpoint_str);
+  });
 
 
   server.on("/reset", []() {
@@ -491,11 +457,7 @@ void setup() {
   timer.every(60000, postToDB);
 }
 
-void loop() {  
-  // Check for new public IP every 60 seconds
-  //EasyDDNS.update(60000);
-    
+void loop() {      
   server.handleClient();
-
   timer.tick(); //tick the timer  
 }
